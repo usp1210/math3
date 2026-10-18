@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Step Summit: Your Problems</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Lilita+One&display=swap">
+<style>
+/* Layout: alpine trail across the top (5 camps per round); work area left, prompt + keypad right; pine = done, sun = now */
+:root{
+  --bg:#e9f1ed; --card:#ffffff; --ink:#1b2a26; --muted:#566a64; --line:#cddbd4;
+  --pine:#2b6a4f; --pine-soft:#dcefe4; --sun:#c97c10; --sun-soft:#fdf0d8;
+  --err:#b3261e; --err-soft:#fbe6e3; --sky:#d4e6ee; --rock:#9fb3ab;
+  --display:"Lilita One","Arial Rounded MT Bold","Trebuchet MS",sans-serif;
+  --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#101917; --card:#17231f; --ink:#e5eeea; --muted:#9db1aa; --line:#2a3a34;
+  --pine:#6fd0a0; --pine-soft:#1c3329; --sun:#f3b44f; --sun-soft:#3a2b14;
+  --err:#ff8d83; --err-soft:#3b1d1a; --sky:#162630; --rock:#4b5f58; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#101917; --card:#17231f; --ink:#e5eeea; --muted:#9db1aa; --line:#2a3a34;
+  --pine:#6fd0a0; --pine-soft:#1c3329; --sun:#f3b44f; --sun-soft:#3a2b14;
+  --err:#ff8d83; --err-soft:#3b1d1a; --sky:#162630; --rock:#4b5f58; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45}
+.wrap{max-width:1000px;margin:0 auto;padding-inline:16px;padding-block:20px 40px;display:grid;gap:16px}
+header{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(30px,6vw,42px);margin:0;letter-spacing:.01em;color:var(--pine);line-height:1}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.seg{display:inline-grid;grid-auto-flow:column;border:2px solid var(--pine);border-radius:12px;overflow:hidden}
+.seg button{font:inherit;font-weight:700;border:0;background:var(--card);color:var(--pine);padding:8px 14px;cursor:pointer;min-height:42px}
+.seg button[aria-pressed="true"]{background:var(--pine);color:var(--card)}
+select{font:inherit;color:var(--ink);background:var(--card);border:2px solid var(--line);border-radius:10px;padding:8px 10px;min-height:42px}
+.check{display:flex;gap:6px;align-items:center;font-size:15px}
+.check input{width:18px;height:18px;accent-color:var(--pine)}
+
+.trail{background:linear-gradient(var(--sky),var(--card));border:1px solid var(--line);border-radius:16px;padding:8px 12px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center}
+.trail svg{width:100%;height:auto;display:block;max-height:150px}
+.score{font-family:var(--display);font-size:28px;color:var(--sun);text-align:right;line-height:1;white-space:nowrap}
+.score small{display:block;font-family:var(--body);font-size:13px;color:var(--muted);font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+
+.board{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+.work{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;min-width:0;display:grid;gap:14px;min-height:340px;align-content:start}
+.label{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:0}
+.big{font-family:var(--display);font-weight:400;font-size:clamp(30px,6vw,44px);margin:0;line-height:1.1;font-variant-numeric:tabular-nums}
+
+/* long division */
+.ld-wrap{overflow-x:auto}
+.ld{--cw:1.15em;display:grid;grid-auto-rows:1.35em;font-size:clamp(30px,7vw,46px);font-variant-numeric:tabular-nums;width:max-content;padding:4px 8px 8px}
+.ld .c{display:grid;place-items:center;min-width:0;border-radius:6px;position:relative}
+.ld .dd{border-top:3px solid var(--ink)}
+.ld .dd.first{border-left:3px solid var(--ink);border-top-left-radius:10px}
+.ld .dv{color:var(--muted)}
+.ld .q{color:var(--pine);font-weight:700}
+.ld .ul{border-bottom:3px solid var(--ink);border-radius:0}
+.ld .sign{color:var(--muted);font-size:.8em}
+.ld .bd{color:var(--sun);font-weight:700}
+.ld .bd.new{animation:drop .4s ease-out}
+[hidden]{display:none!important}
+.ld .focus{background:var(--sun-soft)}
+.ld .ask{background:var(--sun);color:var(--card);font-weight:700;animation:pulse 1.4s ease-in-out infinite}
+.ld .pick{cursor:pointer;outline:2px dashed var(--sun);outline-offset:-3px}
+.ld .pick:hover{background:var(--sun-soft)}
+@keyframes drop{from{transform:translateY(-1.2em);opacity:0}}
+@keyframes pulse{50%{filter:brightness(1.12);transform:scale(1.05)}}
+
+.ld .c.dv{width:auto;padding-right:.18em;justify-items:end}
+.ld .cy{font-size:.5em;color:var(--sun);font-weight:700;align-self:end}
+.ld .cy.ask{font-size:.5em}
+.ld .res{color:var(--pine);font-weight:700}
+.ld .thin{height:.75em}
+
+.side{display:grid;gap:12px;min-width:0}
+.prompt{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;display:grid;gap:12px}
+.qtext{font-size:21px;font-weight:700;margin:0;text-wrap:balance}
+.typed{font-family:var(--display);font-size:40px;min-height:56px;border:3px solid var(--sun);border-radius:12px;display:grid;place-items:center;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--sun-soft)}
+.typed.empty{color:var(--muted)}
+.typed.shake{animation:shake .35s;border-color:var(--err);background:var(--err-soft)}
+@keyframes shake{25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-3px)}}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pad button{font-family:var(--display);font-size:26px;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;min-height:54px;cursor:pointer;box-shadow:0 3px 0 var(--line)}
+.pad button:active{transform:translateY(2px);box-shadow:0 1px 0 var(--line)}
+.pad .go{background:var(--pine);border-color:var(--pine);color:var(--card);box-shadow:0 3px 0 color-mix(in srgb,var(--pine) 60%,#000)}
+.msg{border-radius:12px;padding:10px 12px;font-size:16px;background:var(--bg);min-height:46px}
+.msg.good{background:var(--pine-soft)} .msg.bad{background:var(--err-soft)} .msg.tip{background:var(--sun-soft)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chips span{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:1px 7px;font-variant-numeric:tabular-nums}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.btn{font-family:var(--display);font-size:18px;font-weight:400;border:2px solid var(--pine);background:var(--pine);color:var(--card);border-radius:12px;padding:8px 16px;cursor:pointer;min-height:44px}
+.btn.ghost{background:transparent;color:var(--pine)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+
+.done{display:grid;gap:10px;justify-items:start}
+.stars{font-size:34px;color:var(--sun);letter-spacing:4px}
+.stars .off{color:var(--line)}
+
+@media (max-width:780px){ .board{grid-template-columns:minmax(0,1fr)} .work{min-height:0} }
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+body{margin:0}
+img{max-width:100%}
+
+/* custom problem setup */
+.sub{display:block;font-family:var(--body);font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+a.btn{text-decoration:none;display:inline-grid;place-items:center}
+.setup{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;display:grid;gap:14px}
+.setup h2{font-family:var(--display);font-weight:400;font-size:26px;margin:0;color:var(--pine)}
+.setup p{margin:0}
+.setup-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+textarea{font-family:var(--display);font-size:24px;line-height:1.5;color:var(--ink);background:var(--bg);border:2px solid var(--line);border-radius:12px;padding:10px 14px;width:100%;min-height:260px;resize:vertical;font-variant-numeric:tabular-nums}
+textarea:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.plist{list-style:none;margin:0;padding:0;display:grid;gap:6px;counter-reset:p}
+.plist li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:8px;align-items:start;border-radius:10px;padding:6px 10px;background:var(--pine-soft)}
+.plist li::before{counter-increment:p;content:counter(p);font-family:var(--display);color:var(--pine);font-size:20px;line-height:1.3}
+.plist li.err{background:var(--err-soft)}
+.plist li.err::before{content:"!";color:var(--err);counter-increment:none}
+.plist .eq{font-family:var(--display);font-size:22px;font-variant-numeric:tabular-nums;line-height:1.3}
+.plist .note{display:block;font-size:14px;color:var(--muted)}
+.plist li.err .note{color:var(--err)}
+.empty-list{color:var(--muted);font-style:italic}
+.share{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.share input{font:inherit;font-size:14px;flex:1 1 220px;min-width:0;color:var(--ink);background:var(--bg);border:2px solid var(--line);border-radius:10px;padding:8px 10px}
+.fine{font-size:14px;color:var(--muted)}
+@media (max-width:780px){ .setup-grid{grid-template-columns:minmax(0,1fr)} textarea{min-height:180px} }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Step Summit<span class="sub">Your problems</span></h1>
+    <div class="controls">
+      <button class="btn ghost" id="editBtn" hidden>Edit problems</button>
+      <a class="btn ghost" href="./">Random problems</a>
+    </div>
+  </header>
+
+  <section class="setup" id="setup">
+    <h2>Type in your own problems</h2>
+    <p>One problem per line. Use <strong>x</strong> or <strong>×</strong> to multiply and <strong>/</strong> or <strong>÷</strong> to divide.</p>
+    <div class="setup-grid">
+      <div>
+        <label class="label" for="src">Problems</label>
+        <textarea id="src" spellcheck="false" autocomplete="off" placeholder="347 x 26&#10;846 / 7&#10;1250 ÷ 25"></textarea>
+        <p class="fine">Multiply: the top number can have up to 6 digits and the bottom up to 4. Divide: the divisor can have 1 or 2 digits. Remainders are fine. Up to 12 problems.</p>
+      </div>
+      <div>
+        <p class="label">Climb preview</p>
+        <ol class="plist" id="plist"></ol>
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn" id="startBtn">Start climb</button>
+      <button class="btn ghost" id="shareBtn">Copy share link</button>
+      <button class="btn ghost" id="exampleBtn">Load example</button>
+    </div>
+    <div class="share" id="shareRow" hidden>
+      <input id="shareUrl" readonly aria-label="Share link">
+      <span class="fine" id="shareMsg"></span>
+    </div>
+  </section>
+
+  <div class="trail" id="trailBox" hidden>
+    <svg id="trail" viewBox="0 0 640 120" role="img" aria-label="Climb progress"></svg>
+    <div class="score"><span id="score">★ 0</span><small>this climb</small></div>
+  </div>
+
+  <div class="board" id="board" hidden>
+    <section class="work" id="work" aria-live="polite"></section>
+    <aside class="side">
+      <div class="prompt" id="prompt">
+        <p class="qtext" id="qtext"></p>
+        <div class="typed empty" id="typed" aria-live="polite">?</div>
+        <div class="pad" id="pad"></div>
+        <div class="msg" id="msg"></div>
+        <div class="row">
+          <button class="btn ghost" id="hintBtn">Hint</button>
+          <button class="btn ghost" id="skipBtn">Start over</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+let ROUND=5;
+const MAX_PROBLEMS=12;
+const PLACE=['ones','tens','hundreds','thousands','ten thousands','hundred thousands','millions','ten millions','hundred millions','billions'];
+const EXAMPLE='47 x 6\n347 x 26\n846 / 7\n1250 ÷ 25\n923 / 4';
+
+/* ---------- reading the problems you type ---------- */
+// Returns {ok, op, a, b, label, note} for one line of text.
+function parseLine(raw){
+  const line=raw.trim().replace(/,/g,'');
+  const m=line.match(/^(\d+)\s*([x×*Xx·÷\/:])\s*(\d+)\s*=?\s*$/);
+  if(!m) return {ok:false, label:raw.trim(), note:'Write it like 347 x 26 or 846 / 7.'};
+  let a=+m[1], b=+m[3];
+  const op = /[x×*X·]/.test(m[2]) ? 'mul' : 'div';
+  if(op==='mul'){
+    if(a<1||b<1) return {ok:false,label:`${a} × ${b}`,note:'Use numbers bigger than 0.'};
+    let note='';
+    // Put the longer number on top.
+    if(String(b).length>String(a).length){ [a,b]=[b,a]; note='Flipped so the longer number is on top.'; }
+    if(String(b).length>4) return {ok:false,label:`${a} × ${b}`,note:'One of the numbers must have 4 digits or fewer.'};
+    if(String(a).length>6) return {ok:false,label:`${a} × ${b}`,note:'The top number can have up to 6 digits.'};
+    return {ok:true,op,a,b,label:`${a} × ${b}`,note};
+  }
+  if(b<1) return {ok:false,label:`${a} ÷ ${b}`,note:"You can't divide by 0."};
+  if(b>99) return {ok:false,label:`${a} ÷ ${b}`,note:'The divisor can have 1 or 2 digits.'};
+  if(a<b) return {ok:false,label:`${a} ÷ ${b}`,note:'The first number must be at least as big as the divisor.'};
+  if(String(a).length>7) return {ok:false,label:`${a} ÷ ${b}`,note:'The number being divided can have up to 7 digits.'};
+  const r=a%b;
+  return {ok:true,op,a,b,label:`${a} ÷ ${b}`,note: r? `Has a remainder.` : ''};
+}
+function parseAll(text){
+  return text.split(/[\n;]+/).map(s=>s.trim()).filter(Boolean).map(parseLine);
+}
+const toHash=list=>list.map(p=>`${p.a}${p.op==='mul'?'x':'d'}${p.b}`).join(',');
+function fromHash(h){
+  return decodeURIComponent(h.replace(/^#/,'')).split(',').filter(Boolean)
+    .map(s=>s.replace(/d/i,' / ').replace(/x/i,' x ')).join('\n');
+}
+
+/* ---------- multiplication: the written column method ---------- */
+function buildMul(a,b){
+  const ad=[...String(a)].reverse().map(Number), bd=[...String(b)].reverse().map(Number);
+  const la=ad.length, lb=bd.length, W=la+lb;
+  const steps=[], partial=[];
+  bd.forEach((y,r)=>{
+    // A 0 in the bottom number makes a row of all zeros, so we skip that row.
+    if(y===0 && lb>1){
+      steps.push({kind:'skip0',r,ans:0,target:null,writes:[],focus:[['b',r]],
+        text:`The ${PLACE[r]} digit is 0. What is ${a} × 0?`,
+        after:`That whole row would be zeros, so we skip it and move on.`});
+      return;
+    }
+    const prow='p'+partial.length, pd={};
+    for(let z=0;z<r;z++){
+      steps.push({kind:'zero',r,ans:0,target:[prow,z],writes:[[prow,z,'0']],focus:[['b',r]],
+        text: z===0 ? `Now multiply by the ${y} in the ${PLACE[r]} place. What goes in the ones place first?`
+                    : `What goes in the ${PLACE[z]} place?`,
+        after:`Write 0 to hold the ${PLACE[z]} place.`});
+      pd[z]=0;
+    }
+    let carry=0;
+    ad.forEach((x,c)=>{
+      const col=c+r, prod=x*y, val=prod+carry, last=c===la-1, writes=[];
+      let next=0;
+      if(last){ [...String(val)].reverse().forEach((ch,m)=>{ writes.push([prow,col+m,ch]); pd[col+m]=+ch; }); }
+      else{
+        writes.push([prow,col,String(val%10)]); pd[col]=val%10; next=Math.floor(val/10);
+        if(next) writes.push(['mc'+r,col+1,String(next),'cy']);
+      }
+      const after = last? '' : next? `Write ${val%10}, carry ${next}.` : `Write ${val%10}.`;
+      const focus=[['a',c],['b',r]];
+      if(carry){
+        steps.push({kind:'mf',r,x,y,ans:prod,target:[prow,col],writes:[],focus,text:`${y} × ${x} = ?`});
+        steps.push({kind:'ac',r,prod,carry,ans:val,target:[prow,col],writes,after,focus:[['mc'+r,col]],
+          text:`Now add the carry: ${prod} + ${carry} = ?`});
+      } else steps.push({kind:'mf',r,x,y,ans:prod,target:[prow,col],writes,after,focus,text:`${y} × ${x} = ?`});
+      carry=next;
+    });
+    partial.push(pd);
+  });
+  const np=partial.length;
+  if(np>1){
+    const maxc=Math.max(...partial.flatMap(P=>Object.keys(P).map(Number)));
+    let carry=0;
+    for(let c=0;c<=maxc;c++){
+      const xs=partial.map(P=>P[c]).filter(v=>v!==undefined), sum=xs.reduce((s,v)=>s+v,0)+carry, last=c===maxc, writes=[];
+      let next=0;
+      if(last){ [...String(sum)].reverse().forEach((ch,m)=>writes.push(['s',c+m,ch,'res'])); }
+      else{ writes.push(['s',c,String(sum%10),'res']); next=Math.floor(sum/10); if(next) writes.push(['ac',c+1,String(next),'cy']); }
+      const terms=xs.map(String); if(carry) terms.push(String(carry));
+      const text = terms.length>1 ? `Add the ${PLACE[c]}: ${terms.join(' + ')} = ?` : `Add the ${PLACE[c]}: there's only ${terms[0]}. What do you write?`;
+      const after = last? '' : next? `Write ${sum%10}, carry ${next}.` : `Write ${sum}.`;
+      steps.push({kind:'add',c,ans:sum,carry,target:['s',c],writes,after,focus:[...partial.map((_,i)=>['p'+i,c]),['ac',c]],text});
+      carry=next;
+    }
+  }
+  return {type:'mul',a,b,la,lb,W,ad,bd,np,steps,result:a*b};
+}
+
+/* ---------- long division ---------- */
+function buildDiv(D,q){
+  const d=String(D).split('').map(Number), n=d.length;
+  let s=0, cur=d[0]; while(cur<q && s<n-1){ s++; cur=cur*10+d[s]; }
+  const blocks=[], steps=[];
+  for(let i=s;i<n;i++){
+    const qd=Math.floor(cur/q), p=qd*q, r=cur-p, k=blocks.length;
+    blocks.push({i,cur,qd,p,r});
+    steps.push({kind:'qd',k,ans:qd,text:`How many ${q}s fit in ${cur}?`});
+    steps.push({kind:'p',k,ans:p,text:`Multiply: ${qd} × ${q} = ?`});
+    steps.push({kind:'r',k,ans:r,text:`Subtract: ${cur} − ${p} = ?`});
+    if(i<n-1){ steps.push({kind:'bring',k,col:i+1,text:`Bring down the next digit. Tap it in ${D}.`}); cur=r*10+d[i+1]; }
+  }
+  return {type:'div',D,q,d,n,s,blocks,steps,quot:Math.floor(D/q),rem:D%q};
+}
+
+/* ---------- state ---------- */
+let LIST=[];
+let round, P;
+
+function newRound(){ round={idx:0, stars:[]}; newProblem(); }
+function newProblem(){
+  const p=LIST[round.idx];
+  const data = p.op==='mul' ? buildMul(p.a,p.b) : buildDiv(p.a,p.b);
+  P={data, stepIdx:0, typed:'', miss:0, stepMiss:0, hints:0, finished:false};
+  let intro;
+  if(data.type==='div') intro = data.s>0 ? `${data.q} doesn't fit in ${data.D.toString().slice(0,data.s)}, so start with ${data.blocks[0].cur}.` : `Start with ${data.d[0]}.`;
+  else intro = `Start with the ones digit of ${data.b}. Work from right to left.`;
+  setMsg('tip',intro);
+  render();
+}
+function step(){ return P.data.steps[P.stepIdx]; }
+function setMsg(kind,html){ const m=$('msg'); m.className='msg '+kind; m.innerHTML=html; }
+
+/* ---------- input ---------- */
+function press(k){
+  if(P.finished) return;
+  const s=step(); if(!s || s.kind==='bring') return;
+  if(k==='del') P.typed=P.typed.slice(0,-1);
+  else if(k==='go') return submit();
+  else if(P.typed.length<6) P.typed=(P.typed==='0'?'':P.typed)+k;
+  render();
+}
+function submit(){
+  const s=step();
+  if(P.typed===''){ setMsg('bad','Type a number first.'); return; }
+  const v=+P.typed;
+  if(v===s.ans){
+    P.stepIdx++; P.typed=''; P.stepMiss=0;
+    if(P.stepIdx>=P.data.steps.length) return finish();
+    const nx=step();
+    setMsg('good',[praise(), s.after||'', nx.kind==='bring'?'Now bring down the next digit.':''].filter(Boolean).join(' '));
+    render(); return;
+  }
+  P.miss++; P.stepMiss++;
+  const t=$('typed'); t.classList.remove('shake'); void t.offsetWidth; t.classList.add('shake');
+  setMsg('bad', P.stepMiss>=2 ? `It's <strong>${s.ans}</strong>. Type ${s.ans} to keep climbing.` : whyWrong(s,v));
+  P.typed=''; render();
+}
+function whyWrong(s,v){
+  const d=P.data;
+  if(s.kind==='qd'){
+    const b=d.blocks[s.k], q=d.q;
+    if(v*q>b.cur) return `Too big. ${v} × ${q} = ${v*q}, and that's more than ${b.cur}.`;
+    return `${v} × ${q} = ${v*q}. That leaves ${b.cur-v*q}, and another ${q} still fits. Try a bigger number.`;
+  }
+  if(s.kind==='r' && v>d.blocks[s.k].cur) return `The answer can't be bigger than ${d.blocks[s.k].cur}. Try again.`;
+  if(s.kind==='zero') return `Multiplying by ${PLACE[s.r]} puts a 0 in each place to its right.`;
+  if(s.kind==='skip0') return 'Anything times 0 is 0.';
+  if(s.kind==='ac' && v===s.prod) return `Don't forget the ${s.carry} you carried.`;
+  if(s.kind==='add' && s.carry && v===s.ans-s.carry) return `Don't forget the ${s.carry} you carried.`;
+  return 'Not quite. Try again.';
+}
+const PRAISE=['Yes!','Nice!','Got it!','Great step!','Correct!'];
+const praise=()=>PRAISE[rnd(0,PRAISE.length-1)];
+
+function pickDigit(col){
+  const s=step(); if(!s || s.kind!=='bring') return;
+  if(col===s.col){
+    P.stepIdx++; P.stepMiss=0;
+    setMsg('good',`Brought down the ${P.data.d[col]}. ${step().text.replace(' = ?','?')}`);
+    render();
+  } else {
+    P.miss++;
+    setMsg('bad','Don\'t skip a digit. Bring down the one right after the digits you have already used.');
+  }
+}
+
+function hint(){
+  const s=step(); if(!s || P.finished) return;
+  P.hints++;
+  const d=P.data, q=d.q;
+  if(s.kind==='qd'){
+    const cur=d.blocks[s.k].cur;
+    const m=[...Array(9)].map((_,i)=>`<span>${i+1} × ${q} = ${(i+1)*q}</span>`).join('');
+    const est = q>=10 ? `Round ${q} to ${Math.round(q/10)*10} to make a guess, then check. ` : '';
+    setMsg('tip',`${est}Find the biggest one that is not more than ${cur}.<div class="chips">${m}</div>`);
+  } else if(s.kind==='p'){
+    const qd=d.blocks[s.k].qd;
+    setMsg('tip', q>=10 ? `Split ${q} into ${q-q%10} + ${q%10}. Do ${qd} × ${q-q%10} and ${qd} × ${q%10}, then add.` : `Count by ${q}s, ${qd} times.`);
+  } else if(s.kind==='r'){
+    const b=d.blocks[s.k]; setMsg('tip',`Count up from ${b.p} to ${b.cur}.`);
+  } else if(s.kind==='bring'){
+    setMsg('tip',`It's the digit right after the ones you have used. Look at the top number, ${d.D}.`);
+  } else if(s.kind==='mf'){
+    setMsg('tip', s.x===0||s.y===0 ? 'Anything times 0 is 0.' : `Times table: count by ${s.y}s, ${s.x} times.`);
+  } else if(s.kind==='ac'){
+    setMsg('tip',`Count up ${s.carry} from ${s.prod}.`);
+  } else if(s.kind==='zero'){
+    setMsg('tip',`The ${d.bd[s.r]} means ${d.bd[s.r]} ${PLACE[s.r]}, so this row is counted in ${PLACE[s.r]}. Every place to the right of it gets a 0.`);
+  } else if(s.kind==='skip0'){
+    setMsg('tip','Anything times 0 is 0.');
+  } else if(s.kind==='add'){
+    setMsg('tip','Add the digits in the highlighted column, including any small carried number on top.');
+  }
+  render();
+}
+
+function finish(){
+  P.finished=true; P.typed='';
+  const cost=P.miss+P.hints, st= cost===0?3 : cost<=2?2 : 1;
+  round.stars.push(st);
+  render();
+}
+
+/* ---------- rendering ---------- */
+function render(){
+  renderTrail();
+  const d=P.data, s=step();
+  $('qtext').textContent = P.finished? 'Problem done!' : s.text;
+  const typed=$('typed'), bring = s && s.kind==='bring';
+  typed.hidden = P.finished || bring; $('pad').hidden = P.finished || bring;
+  typed.textContent = P.typed || '?'; typed.classList.toggle('empty',!P.typed);
+  $('hintBtn').hidden=P.finished; $('skipBtn').hidden=P.finished;
+  const w=$('work'); w.innerHTML='';
+  const head=document.createElement('div');
+  head.innerHTML = d.type==='mul'
+    ? `<p class="label">Problem ${round.idx+1} of ${ROUND} · Column multiplication</p><p class="big">${d.a} × ${d.b}</p>`
+    : `<p class="label">Problem ${round.idx+1} of ${ROUND} · Long division</p><p class="big">${d.D} ÷ ${d.q}</p>`;
+  w.append(head);
+  w.append(d.type==='mul'? renderMul(d) : renderDiv(d));
+  if(P.finished) w.append(renderDone(d));
+}
+
+function gridFrom(cells, cols, colOf, onPick){
+  const g=document.createElement('div'); g.className='ld';
+  g.style.gridTemplateColumns=cols;
+  cells.forEach(c=>{
+    const el=document.createElement('div'); el.className='c '+c.cls; el.textContent=c.text;
+    el.style.gridRow=c.row; el.style.gridColumn=colOf(c.col);
+    if(onPick && c.cls.includes('pick')){ el.setAttribute('role','button'); el.tabIndex=0; el.onclick=()=>onPick(c.col);
+      el.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); onPick(c.col);} }; }
+    g.append(el);
+  });
+  const wrap=document.createElement('div'); wrap.className='ld-wrap'; wrap.append(g); return wrap;
+}
+function cellStore(){
+  const cells=new Map();
+  const put=(row,col,text,cls='')=>{
+    const key=row+':'+col, c=cells.get(key);
+    if(c){ if(text!=='') c.text=text; c.cls+=' '+cls; } else cells.set(key,{row,col,text,cls});
+  };
+  return {cells,put};
+}
+
+function renderMul(d){
+  const {cells,put}=cellStore(), s=step(), W=d.W;
+  const two=d.np>1;
+  // rows: carries, top number, bottom number, (addition carries), one row per partial product, (sum)
+  const ROW={mc:1,a:2,b:3};
+  if(two){ ROW.ac=4; for(let i=0;i<d.np;i++) ROW['p'+i]=5+i; ROW.s=5+d.np; }
+  else ROW.p0=4;
+  const rowOf=name=> name.startsWith('mc')? ROW.mc : ROW[name];
+  const lastP=ROW['p'+(d.np-1)];
+  // problem
+  d.ad.forEach((x,c)=>put(ROW.a,c,String(x)));
+  d.bd.forEach((y,c)=>put(ROW.b,c,String(y)));
+  put(ROW.b,W,'×','sign');
+  for(let c=0;c<=W;c++) put(ROW.b,c,'','ul');
+  if(two){ put(lastP,W,'+','sign'); for(let c=0;c<=W;c++) put(lastP,c,'','ul'); put(ROW.ac,0,'','thin'); }
+  put(ROW.mc,0,'','thin');
+  // which multiplication row is active (only its carries are shown)
+  const activeR = !P.finished && s && s.r!==undefined ? s.r : null;
+  d.steps.forEach((st,j)=>{
+    if(j>=P.stepIdx) return;
+    st.writes.forEach(([row,col,ch,cls])=>{
+      if(row.startsWith('mc') && row!=='mc'+activeR) return;
+      put(rowOf(row),col,ch,cls||'');
+    });
+  });
+  if(!P.finished && s){
+    s.focus.forEach(([row,col])=>{ if(row.startsWith('mc') && row!=='mc'+activeR) return; put(rowOf(row),col,'','focus'); });
+    if(s.target){
+      const [trow,tcol]=s.target, str=P.typed||'?';
+      [...str].reverse().forEach((ch,m)=>put(rowOf(trow),tcol+m,ch,'ask'));
+    }
+  }
+  return gridFrom(cells,`repeat(${W+1}, var(--cw))`,col=>1+W-col);
+}
+
+function renderDiv(d){
+  const {cells,put}=cellStore(), s=step();
+  const doneK=(kind,k)=>d.steps.some((x,j)=>j<P.stepIdx&&x.kind===kind&&x.k===k);
+  const isCur=(kind,k)=>!P.finished && s && s.kind===kind && s.k===k;
+  const placeNum=(row,end,str,cls)=>{ [...str].forEach((ch,m)=>put(row,end-str.length+1+m,ch,cls)); };
+
+  put(2,-1,String(d.q),'dv');
+  let used=d.s; d.steps.forEach((x,j)=>{ if(j<P.stepIdx&&x.kind==='bring') used=x.col; });
+  d.d.forEach((x,c)=>put(2,c,String(x),'dd'+(c===0?' first':'')+(s&&s.kind==='bring'&&c>used&&!P.finished?' pick':'')));
+
+  d.blocks.forEach((b,k)=>{
+    const prow=3+2*k, rrow=4+2*k, start=b.i-String(b.cur).length+1;
+    if(doneK('qd',k)) put(1,b.i,String(b.qd),'q');
+    else if(isCur('qd',k)) placeNum(1,b.i,P.typed||'?','ask');
+    if(doneK('p',k)||isCur('p',k)){
+      for(let c=start;c<=b.i;c++) put(prow,c,'','ul');
+      placeNum(prow,b.i, doneK('p',k)? String(b.p) : (P.typed||'?'), doneK('p',k)?'':'ask');
+      put(prow,start-1,'−','sign');
+    }
+    if(doneK('r',k)||isCur('r',k)) placeNum(rrow,b.i, doneK('r',k)? String(b.r) : (P.typed||'?'), doneK('r',k)?'':'ask');
+    if(doneK('bring',k)){
+      const prev=d.steps[P.stepIdx-1], justNow = prev && prev.kind==='bring' && prev.k===k && !P.typed;
+      put(rrow,b.i+1,String(d.d[b.i+1]),'bd'+(justNow?' new':''));
+    }
+    if(!P.finished && s && s.k===k && s.kind!=='bring'){
+      const frow = k===0? 2 : 4+2*(k-1);
+      for(let c=start;c<=b.i;c++) put(frow,c,'','focus');
+    }
+  });
+  return gridFrom(cells,`auto repeat(${d.n}, var(--cw))`,col=>col+2,pickDigit);
+}
+
+function renderDone(d){
+  const st=round.stars[round.stars.length-1], total=round.stars.reduce((a,b)=>a+b,0);
+  const el=document.createElement('div'); el.className='done';
+  const eq = d.type==='mul' ? `${d.a} × ${d.b} = ${d.result}` : `${d.D} ÷ ${d.q} = ${d.quot}${d.rem?` R ${d.rem}`:''}`;
+  const check = d.type==='div' ? `<p style="margin:0;color:var(--muted)">Check: ${d.quot} × ${d.q}${d.rem?` + ${d.rem}`:''} = ${d.D}</p>` : '';
+  const last = round.stars.length===ROUND;
+  el.innerHTML=`<p class="big" style="color:var(--pine)">${eq}</p>${check}
+    <div class="stars" aria-label="${st} of 3 stars">${'★'.repeat(st)}<span class="off">${'★'.repeat(3-st)}</span></div>
+    <p style="margin:0">${st===3?'Perfect climb: no mistakes, no hints.': st===2?'Strong climb.':'You made it to camp. Keep going!'}</p>
+    ${last?`<p class="big" style="font-size:28px;color:var(--sun)">Summit! ★ ${total} of ${ROUND*3}</p>`:''}
+    <div class="row">${last? `<button class="btn" id="again">Climb again</button><button class="btn ghost" id="newSet">New problems</button>` : '<button class="btn" id="nextP">Next camp</button>'}</div>`;
+  setTimeout(()=>{
+    const n=$('nextP'); if(n){ n.onclick=()=>{ round.idx++; newProblem(); }; n.focus(); }
+    const a=$('again'); if(a){ a.onclick=newRound; a.focus(); }
+    const h=$('newSet'); if(h) h.onclick=showSetup;
+  });
+  setMsg('good', last? 'You reached the summit!' : `Camp ${round.idx+1} reached.`);
+  return el;
+}
+
+function renderTrail(){
+  // start + one camp per problem, climbing left to right with a gentle zigzag
+  const pts=[...Array(ROUND+1)].map((_,k)=>{
+    const t=k/ROUND, x=40+t*550, y=100-t*62 + (k>0&&k<ROUND ? (k%2? -6 : 8) : 0);
+    return [Math.round(x),Math.round(y)];
+  });
+  let h=`<polygon points="0,120 120,60 200,85 330,30 430,65 560,10 640,50 640,120" fill="var(--rock)" opacity=".35"/>`;
+  h+=`<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="var(--muted)" stroke-width="3" stroke-dasharray="6 6" stroke-linecap="round"/>`;
+  pts.forEach((p,k)=>{
+    if(k===0){ h+=`<text x="${p[0]}" y="${p[1]+18}" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="sans-serif">start</text>`; return; }
+    const i=k-1, st=round.stars[i], isNow = i===round.idx && st===undefined;
+    h+=`<circle cx="${p[0]}" cy="${p[1]}" r="14" fill="${st!==undefined?'var(--pine)':'var(--card)'}" stroke="${isNow?'var(--sun)':st!==undefined?'var(--pine)':'var(--muted)'}" stroke-width="${isNow?4:2}"/>`;
+    h+=`<text x="${p[0]}" y="${p[1]+5}" text-anchor="middle" font-size="14" font-weight="700" fill="${st!==undefined?'var(--card)':'var(--muted)'}" font-family="sans-serif">${k===ROUND?'▲':k}</text>`;
+    if(st!==undefined) h+=`<text x="${p[0]}" y="${p[1]-20}" text-anchor="middle" font-size="13" fill="var(--sun)" font-family="sans-serif">${'★'.repeat(st)}</text>`;
+  });
+  const cp=pts[Math.min(round.stars.length,ROUND)];
+  h+=`<g transform="translate(${cp[0]-6},${cp[1]-34})"><line x1="6" y1="0" x2="6" y2="18" stroke="var(--ink)" stroke-width="2"/><polygon points="7,0 20,5 7,10" fill="var(--sun)"/></g>`;
+  $('trail').innerHTML=h;
+  $('score').textContent='★ '+round.stars.reduce((a,b)=>a+b,0);
+}
+
+/* ---------- wiring ---------- */
+['1','2','3','4','5','6','7','8','9','del','0','go'].forEach(k=>{
+  const b=document.createElement('button');
+  b.textContent= k==='del'?'⌫' : k==='go'?'✓' : k;
+  b.setAttribute('aria-label', k==='del'?'Delete' : k==='go'?'Check' : k);
+  if(k==='go') b.className='go';
+  b.onmousedown=e=>e.preventDefault();
+  b.onclick=()=>press(k); $('pad').append(b);
+});
+document.addEventListener('keydown',e=>{
+  if(/^(SELECT|INPUT|TEXTAREA)$/.test(e.target.tagName) || !P || $('board').hidden) return;
+  if(/^\d$/.test(e.key)) press(e.key);
+  else if(e.key==='Backspace') press('del');
+  else if(e.key==='Enter'){
+    if(P.finished || e.target.closest('.done') || e.target.classList.contains('pick')) return;
+    e.preventDefault(); press('go');
+  }
+});
+/* ---------- setup screen ---------- */
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function preview(){
+  const items=parseAll($('src').value), ul=$('plist');
+  const good=items.filter(p=>p.ok);
+  ul.innerHTML = items.length ? items.map((p,i)=>{
+    const over = p.ok && good.indexOf(p)>=MAX_PROBLEMS;
+    const note = over ? `Only the first ${MAX_PROBLEMS} problems are used.` : p.note;
+    return `<li class="${p.ok&&!over?'':'err'}"><span><span class="eq">${esc(p.label)}</span>${note?`<span class="note">${esc(note)}</span>`:''}</span></li>`;
+  }).join('') : '<li class="err" style="background:var(--bg)"><span class="empty-list">No problems yet. Type one on the left.</span></li>';
+  const n=Math.min(good.length,MAX_PROBLEMS);
+  $('startBtn').disabled = n===0;
+  $('startBtn').textContent = n ? `Start climb (${n} problem${n>1?'s':''})` : 'Start climb';
+  $('startBtn').style.opacity = n? 1 : .5;
+  try{ localStorage.setItem('ss-custom',$('src').value); }catch(e){}
+  return good.slice(0,MAX_PROBLEMS);
+}
+function startClimb(){
+  const list=preview(); if(!list.length) return;
+  LIST=list; ROUND=list.length;
+  history.replaceState(null,'','#'+toHash(list));
+  $('setup').hidden=true; $('trailBox').hidden=false; $('board').hidden=false; $('editBtn').hidden=false;
+  newRound();
+}
+function showSetup(){
+  $('setup').hidden=false; $('trailBox').hidden=true; $('board').hidden=true; $('editBtn').hidden=true;
+  preview(); $('src').focus();
+}
+async function share(){
+  const list=preview(); if(!list.length) return;
+  const url=location.href.split('#')[0]+'#'+toHash(list);
+  $('shareRow').hidden=false; $('shareUrl').value=url;
+  try{ await navigator.clipboard.writeText(url); $('shareMsg').textContent='Copied! Anyone with this link gets these problems.'; }
+  catch(e){ $('shareUrl').select(); $('shareMsg').textContent='Copy this link to share these problems.'; }
+}
+
+$('typed').addEventListener('animationend',e=>e.target.classList.remove('shake'));
+$('hintBtn').onclick=hint;
+$('skipBtn').onclick=()=>{ if(P && !P.finished) newProblem(); };
+$('src').addEventListener('input',()=>{ preview(); $('shareRow').hidden=true; });
+$('src').addEventListener('keydown',e=>{ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); startClimb(); } });
+$('startBtn').onclick=startClimb;
+$('shareBtn').onclick=share;
+$('exampleBtn').onclick=()=>{ $('src').value=EXAMPLE; preview(); $('src').focus(); };
+$('editBtn').onclick=showSetup;
+
+// A share link (#347x26,846d7) loads its problems and starts right away; otherwise reopen the last list.
+(function init(){
+  if(location.hash.length>1){
+    $('src').value=fromHash(location.hash);
+    if(preview().length){ startClimb(); return; }
+  }
+  let saved=''; try{ saved=localStorage.getItem('ss-custom')||''; }catch(e){}
+  $('src').value=saved;
+  showSetup();
+})();
+</script>
+</body>
+</html>
